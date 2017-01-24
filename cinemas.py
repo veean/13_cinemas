@@ -44,7 +44,7 @@ def fetch_movie_info(movie_title):
 
 
 def output_movies_to_console(movies):
-    pass
+    print(movies)
 
 
 if __name__ == '__main__':
