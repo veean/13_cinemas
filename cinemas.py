@@ -69,7 +69,7 @@ def proxy_to_avoid_ban(url):
 
 def output_movies_to_console(movies, top_number=DEFAULT_TOP_MOVIES_NUMBER):
     sorted_movies = sorted(movies, key=lambda movie: movie[1], reverse=True)[:top_number]
-    for position, movie_info in enumerate(sorted_movies):
+    for position, movie_info in enumerate(sorted_movies, 1):
         print('{}.Movie {} has rating : {} with {} votes'.format(position, movie_info[0], movie_info[1], movie_info[2]))
 
 
