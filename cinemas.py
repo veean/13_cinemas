@@ -1,11 +1,13 @@
-import requests
 from bs4 import BeautifulSoup
-import time
+import requests
+import argparse
 import random
+import time
 
 
 NOT_ARTHOUSE = 15
-PROXY_URL = 'http://www.freeproxy-list.ru/api/proxy'
+PROXY_FABRIC = 'http://www.freeproxy-list.ru/api/proxy'
+DEFAULT_TOP_MOVIES_NUMBER = 10
 
 
 def fetch_afisha_page():
@@ -31,6 +33,8 @@ def parse_afisha_list(raw_html):
 
 
 def fetch_movie_info(movie_title, proxy_list):
+    delay_to_next_request = 20
+
     movie_url_mask = 'https://www.kinopoisk.ru/index.php?first=yes&what=&kp_query='
     headers = {'Accept': 'text/plain',
                'Accept-Encoding': 'UTF-8',
@@ -41,14 +45,19 @@ def fetch_movie_info(movie_title, proxy_list):
 
     try:
         kinopoisk_response = requests.get('{}{}'.format(movie_url_mask, movie_title),
-                                          proxy={"http": random.choice(proxy_list)},
+                                          proxies={"http": random.choice(proxy_list)},
                                           headers=headers, timeout=time_to_wait_response).content
     except (requests.exceptions.ProxyError, requests.exceptions.ConnectTimeout):
         return None
 
     movie_soup = BeautifulSoup(kinopoisk_response, 'html.parser')
-    movie_rate = movie_soup.find('span', class_='rating_ball').text
-    movie_voters = movie_soup.find('span', class_='ratingCount').text
+    raw_movie_rate = movie_soup.find('span', class_='rating_ball')
+    raw_movie_voters = movie_soup.find('span', class_='ratingCount')
+    movie_rate = float(raw_movie_rate.text) if raw_movie_rate else 0
+    movie_voters = raw_movie_voters.text if raw_movie_voters else 0
+
+    time.sleep(delay_to_next_request)
+
     return movie_title, movie_rate, movie_voters
 
 
@@ -58,19 +67,25 @@ def proxy_to_avoid_ban(url):
     return proxies_list
 
 
-def output_movies_to_console(movies, top_number):
+def output_movies_to_console(movies, top_number=DEFAULT_TOP_MOVIES_NUMBER):
     sorted_movies = sorted(movies, key=lambda movie: movie[1], reverse=True)[:top_number]
     for position, movie_info in enumerate(sorted_movies):
         print('{}.Movie {} has rating : {} with {} votes'.format(position, movie_info[0], movie_info[1], movie_info[2]))
 
 
 if __name__ == '__main__':
-    films = parse_afisha_list(fetch_afisha_page())
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-t', '--top', type=int, help='specify a number of top films to print')
+    top_movies_number = parser.parse_args().top
 
-    # for movie_info in films:
-    #     rate, votes = fetch_movie_info(movie_info['movie_title'])
-    #     time.sleep(random.randrange(10, 34))
-    #     print('{} rating : {} votes amount : {}'.format(movie_info['movie_title'], rate, votes))
+    movies_list = parse_afisha_list(fetch_afisha_page())
+    proxies_list = proxy_to_avoid_ban(PROXY_FABRIC)
 
+    wanted_movie_info = [fetch_movie_info(movie['movie_title'], proxies_list) for movie in movies_list]
 
-
+    if top_movies_number:
+        print('Collecting TOP {} rated movies ...'.format(top_movies_number))
+        output_movies_to_console(wanted_movie_info, top_movies_number)
+    else:
+        print('Collecting TOP {} rated movies ...'.format(DEFAULT_TOP_MOVIES_NUMBER))
+        output_movies_to_console(wanted_movie_info)
