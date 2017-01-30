@@ -32,8 +32,7 @@ def parse_afisha_list(raw_html):
     return extract_casual_movies(movies_info_list)
 
 
-def fetch_movie_info(movie_title, proxy_list):
-    delay_to_next_request = 20
+def fetch_movie_info(movie_title, proxy_list, delay_to_next_request=20, time_to_wait_response=10):
 
     movie_url_mask = 'https://www.kinopoisk.ru/index.php?first=yes&what=&kp_query='
     headers = {'Accept': 'text/plain',
@@ -41,7 +40,6 @@ def fetch_movie_info(movie_title, proxy_list):
                'Accept-Language': 'Ru-ru',
                'Content-Type': 'text/html;charset=UTF-8',
                'User-Agent': 'Agent:Mozilla/5.0 (Windows NT 6.1; WOW64)'}
-    time_to_wait_response = 10
 
     try:
         kinopoisk_response = requests.get('{}{}'.format(movie_url_mask, movie_title),
@@ -57,20 +55,25 @@ def fetch_movie_info(movie_title, proxy_list):
     movie_voters = raw_movie_voters.text if raw_movie_voters else 0
 
     time.sleep(delay_to_next_request)
+    movie_info = {'title': movie_title,
+                  'rate': movie_rate,
+                  'votes': movie_voters
+                  }
 
-    return movie_title, movie_rate, movie_voters
+    return movie_info
 
 
-def proxy_to_avoid_ban(url):
+def get_proxy_to_avoid_ban(url):
     params_for_proxies_list = {'anonymity': 'true', 'token': 'demo'}
     proxies_list = requests.get(url, params=params_for_proxies_list).text.splitlines()
     return proxies_list
 
 
 def output_movies_to_console(movies, top_number=DEFAULT_TOP_MOVIES_NUMBER):
-    sorted_movies = sorted(movies, key=lambda movie: movie[1], reverse=True)[:top_number]
+    sorted_movies = sorted(movies, key=lambda movie: movie['rate'], reverse=True)[:top_number]
+    output_template = '{}.Movie {title} has rating : {rate} with {votes} votes'
     for position, movie_info in enumerate(sorted_movies, 1):
-        print('{}.Movie {} has rating : {} with {} votes'.format(position, movie_info[0], movie_info[1], movie_info[2]))
+        print(output_template.format(position, **movie_info))
 
 
 if __name__ == '__main__':
@@ -79,7 +82,7 @@ if __name__ == '__main__':
     top_movies_number = parser.parse_args().top
 
     movies_list = parse_afisha_list(fetch_afisha_page())
-    proxies_list = proxy_to_avoid_ban(PROXY_FABRIC)
+    proxies_list = get_proxy_to_avoid_ban(PROXY_FABRIC)
 
     wanted_movie_info = [fetch_movie_info(movie['movie_title'], proxies_list) for movie in movies_list]
 
